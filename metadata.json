@@ -1,0 +1,7 @@
+{
+  "name": "Weavers Nest - Assam Tourism Terminal",
+  "description": "The official operational management tool for Weavers Nest Assam. Track wildlife excursions, guest logistics, and community impact reports.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
