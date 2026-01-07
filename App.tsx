@@ -58,6 +58,7 @@ const App: React.FC = () => {
           boatCharges: 1500,
           boatmenCharges: 800,
           forestPermission: 1000, 
+          forestGuardCharges: 500,
           communityContribution: 500, 
           commissionPercentage: 10, 
           serviceCharges: 1200 
@@ -71,6 +72,14 @@ const App: React.FC = () => {
   const handleAddActivity = (newActivity: TourismActivity) => {
     setActivities(prev => [newActivity, ...prev]);
     setActiveView('records');
+  };
+
+  const handleDeleteActivity = (id: string) => {
+    setActivities(prev => prev.filter(a => a.id !== id));
+  };
+
+  const handleBulkDelete = (ids: string[]) => {
+    setActivities(prev => prev.filter(a => !ids.includes(a.id)));
   };
 
   const NavItem = ({ icon: Icon, label, view }: { icon: any, label: string, view: ViewState }) => (
@@ -89,10 +98,9 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-black overflow-hidden font-sans">
-      <aside className={`${isSidebarOpen ? 'w-80' : 'w-24'} bg-black border-r border-gray-800 transition-all duration-300 flex flex-col`}>
+      <aside className={`${isSidebarOpen ? 'w-80' : 'w-24'} bg-black border-r border-gray-800 transition-all duration-300 flex flex-col print:hidden`}>
         <div className="p-8">
           <div className="relative mb-6">
-            {/* Logo Bird Icon (Flying Duck) */}
             <div className="flex flex-col items-center">
               <svg viewBox="0 0 24 24" className="w-16 h-16 text-white mb-[-10px] transform rotate-[-5deg]" fill="currentColor">
                 <path d="M12,2C10.5,2 9,3.5 9,5.5C9,6.5 9.5,7.5 10,8C8.5,8.5 7,9 5,9C3,9 1,10 1,12C1,14 3,15 5,15C7,15 8.5,14.5 10,14C11,15.5 12.5,16.5 14.5,16.5C16.5,16.5 18,15.5 19,14C20.5,14.5 22,15 23,13.5C23.5,12.5 23.5,11.5 23,10.5C22,9 20.5,8.5 19,8C18,6.5 16.5,5.5 14.5,5.5C14,5.5 13.5,5.5 13,5.7C13.2,5.1 13.2,4.5 13,3.9C12.8,3.2 12.4,2.5 12,2ZM14.5,7.5C15.9,7.5 17,8.6 17,10C17,11.4 15.9,12.5 14.5,12.5C13.1,12.5 12,11.4 12,10C12,8.6 13.1,7.5 14.5,7.5Z" />
@@ -124,7 +132,7 @@ const App: React.FC = () => {
       </aside>
 
       <main className="flex-1 flex flex-col bg-white rounded-tl-[3rem] overflow-hidden">
-        <header className="h-20 border-b border-gray-100 flex items-center justify-between px-10 bg-white/70 backdrop-blur-xl sticky top-0 z-10">
+        <header className="h-20 border-b border-gray-100 flex items-center justify-between px-10 bg-white/70 backdrop-blur-xl sticky top-0 z-10 print:hidden">
           <div className="flex items-center space-x-6">
             <button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-3 hover:bg-gray-100 rounded-2xl text-gray-500 transition-colors">
               {isSidebarOpen ? <X size={20} /> : <Menu size={20} />}
@@ -151,11 +159,17 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        <div className="flex-1 overflow-y-auto p-12 bg-gray-50/50">
+        <div className="flex-1 overflow-y-auto p-12 bg-gray-50/50 print:p-0 print:m-0 print:bg-white">
           <div className="max-w-7xl mx-auto space-y-12 animate-in fade-in slide-in-from-bottom-6 duration-700">
             {activeView === 'dashboard' && <Dashboard activities={activities} />}
             {activeView === 'new-entry' && <EntryForm onAdd={handleAddActivity} />}
-            {activeView === 'records' && <Records activities={activities} />}
+            {activeView === 'records' && (
+              <Records 
+                activities={activities} 
+                onDelete={handleDeleteActivity}
+                onBulkDelete={handleBulkDelete}
+              />
+            )}
             {activeView === 'reports' && <Reports activities={activities} />}
           </div>
         </div>

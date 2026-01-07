@@ -31,13 +31,18 @@ import {
   TrendingUp,
   Search,
   Download,
+  FileDown, // Added missing icon import to fix the compilation error
   Filter,
   MoreVertical,
   Eye,
   UserCheck,
-  // Added missing icons to fix "Cannot find name" errors
+  ShieldCheck,
   IndianRupee,
-  Printer
+  Printer,
+  CheckSquare,
+  Square,
+  FileJson,
+  FileSpreadsheet
 } from 'lucide-react';
 import { 
   AreaChart, 
@@ -69,6 +74,7 @@ export interface Costs {
   boatCharges: number;
   boatmenCharges: number;
   forestPermission: number;
+  forestGuardCharges: number;
   communityContribution: number;
   commissionPercentage: number;
   serviceCharges: number;
@@ -267,6 +273,7 @@ const EntryForm: React.FC<{ onAdd: (activity: TourismActivity) => void }> = ({ o
     boatCharges: 1500,
     boatmenCharges: 800,
     forestPermission: 1000,
+    forestGuardCharges: 500,
     communityContribution: 500,
     commissionPercentage: 10,
     serviceCharges: 1200
@@ -303,8 +310,14 @@ const EntryForm: React.FC<{ onAdd: (activity: TourismActivity) => void }> = ({ o
 
   const calculations = useMemo(() => {
     const baseLogistics = 
-      costs.guideCharges + costs.vehicleCharges + costs.boatCharges + 
-      costs.boatmenCharges + costs.forestPermission + costs.communityContribution;
+      costs.guideCharges + 
+      costs.vehicleCharges + 
+      costs.boatCharges + 
+      costs.boatmenCharges + 
+      costs.forestPermission + 
+      costs.forestGuardCharges +
+      costs.communityContribution;
+    
     const commissionAmount = (costs.commissionPercentage / 100) * baseLogistics;
     const totalCharge = baseLogistics + commissionAmount + costs.serviceCharges;
     const profit = costs.serviceCharges + commissionAmount;
@@ -456,6 +469,7 @@ const EntryForm: React.FC<{ onAdd: (activity: TourismActivity) => void }> = ({ o
                   { key: 'boatCharges', label: 'Boat Charges' },
                   { key: 'boatmenCharges', label: 'Boatmen/Rafting' },
                   { key: 'forestPermission', label: 'Forest Entry' },
+                  { key: 'forestGuardCharges', label: 'Forest Guard' },
                   { key: 'communityContribution', label: 'Community Svc' },
                   { key: 'serviceCharges', label: 'Service Charge' },
                 ].map((item) => (
@@ -464,6 +478,10 @@ const EntryForm: React.FC<{ onAdd: (activity: TourismActivity) => void }> = ({ o
                     <input type="number" value={costs[item.key as keyof Costs]} onChange={e => setCosts({...costs, [item.key]: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 bg-gray-50 border-none rounded-xl text-sm font-black" />
                   </div>
                 ))}
+                <div className="space-y-1">
+                  <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Comm. (%)</label>
+                  <input type="number" value={costs.commissionPercentage} onChange={e => setCosts({...costs, commissionPercentage: parseFloat(e.target.value) || 0})} className="w-full px-3 py-2 bg-gray-50 border-none rounded-xl text-sm font-black" />
+                </div>
               </div>
             </div>
           </div>
@@ -485,12 +503,68 @@ const EntryForm: React.FC<{ onAdd: (activity: TourismActivity) => void }> = ({ o
   );
 };
 
-const Records: React.FC<{ activities: TourismActivity[] }> = ({ activities }) => {
+const Records: React.FC<{ activities: TourismActivity[], onDelete: (id: string) => void, onBulkDelete: (ids: string[]) => void }> = ({ activities, onDelete, onBulkDelete }) => {
   const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
   const filtered = activities.filter(a => {
     const head = a.visitors.find(v => v.isHead) || a.visitors[0];
     return head.name.toLowerCase().includes(search.toLowerCase()) || a.hotelName.toLowerCase().includes(search.toLowerCase());
   });
+
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedIds);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelectedIds(next);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === filtered.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filtered.map(a => a.id)));
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (window.confirm(`Permanently delete ${selectedIds.size} records?`)) {
+      onBulkDelete(Array.from(selectedIds));
+      setSelectedIds(new Set());
+    }
+  };
+
+  const exportCSV = () => {
+    const rows = filtered.map(a => {
+      const head = a.visitors.find(v => v.isHead) || a.visitors[0];
+      return [
+        a.date,
+        head.name,
+        a.visitors.length,
+        a.hotelName,
+        a.guideName,
+        a.visitorCharges,
+        a.totalProfit
+      ];
+    });
+    const content = "Date,Head Name,Pax,Partner,Guide,Total Charge,Profit\n" + rows.map(r => r.join(",")).join("\n");
+    const blob = new Blob([content], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `weavers_nest_records_${new Date().toISOString().split('T')[0]}.csv`;
+    link.click();
+  };
+
+  const exportJSON = () => {
+    const content = JSON.stringify(filtered, null, 2);
+    const blob = new Blob([content], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `weavers_nest_backup_${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+  };
 
   return (
     <div className="space-y-6">
@@ -499,23 +573,59 @@ const Records: React.FC<{ activities: TourismActivity[] }> = ({ activities }) =>
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={20} />
           <input type="text" placeholder="Search Head Name or Partner..." className="w-full pl-10 pr-4 py-3 bg-white border border-gray-100 rounded-xl focus:ring-2 ring-emerald-500 outline-none shadow-sm transition-all font-medium" value={search} onChange={e => setSearch(e.target.value)} />
         </div>
+        <div className="flex items-center space-x-3">
+          <button onClick={exportCSV} className="flex items-center space-x-2 px-4 py-3 bg-white border border-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-all shadow-sm">
+            <FileSpreadsheet size={18} />
+            <span className="text-xs uppercase tracking-widest">CSV</span>
+          </button>
+          <button onClick={exportJSON} className="flex items-center space-x-2 px-4 py-3 bg-white border border-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-all shadow-sm">
+            <FileJson size={18} />
+            <span className="text-xs uppercase tracking-widest">JSON Backup</span>
+          </button>
+        </div>
       </div>
+
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between bg-emerald-50 border border-emerald-100 p-4 rounded-2xl animate-in fade-in slide-in-from-top-4">
+          <div className="flex items-center space-x-4">
+            <CheckSquare className="text-emerald-600" size={24} />
+            <span className="text-emerald-900 font-black uppercase text-xs tracking-widest">{selectedIds.size} Records Selected</span>
+          </div>
+          <button onClick={handleDeleteSelected} className="flex items-center space-x-2 px-6 py-2 bg-red-600 text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-red-700 transition-all">
+            <Trash2 size={16} />
+            <span>Delete Selected</span>
+          </button>
+        </div>
+      )}
+
       <div className="bg-white rounded-[2rem] border border-gray-100 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
               <tr className="bg-gray-50/50 border-b border-gray-50">
+                <th className="px-8 py-5 w-16">
+                  <button onClick={toggleSelectAll} className="text-gray-400 hover:text-emerald-600 transition-colors">
+                    {selectedIds.size === filtered.length && filtered.length > 0 ? <CheckSquare size={20} /> : <Square size={20} />}
+                  </button>
+                </th>
                 <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Group Head</th>
                 <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Group Size</th>
                 <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em]">Partner / Guide</th>
                 <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-right">Invoice (₹)</th>
+                <th className="px-8 py-5 text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] text-center">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-50 font-medium">
               {filtered.map((a) => {
                 const head = a.visitors.find(v => v.isHead) || a.visitors[0];
+                const isSelected = selectedIds.has(a.id);
                 return (
-                  <tr key={a.id} className="hover:bg-gray-50/80 transition-colors">
+                  <tr key={a.id} className={`hover:bg-gray-50/80 transition-colors ${isSelected ? 'bg-emerald-50/30' : ''}`}>
+                    <td className="px-8 py-6">
+                      <button onClick={() => toggleSelect(a.id)} className={`${isSelected ? 'text-emerald-600' : 'text-gray-300'} hover:text-emerald-500 transition-colors`}>
+                        {isSelected ? <CheckSquare size={20} /> : <Square size={20} />}
+                      </button>
+                    </td>
                     <td className="px-8 py-6">
                       <div className="flex items-center space-x-4">
                         <div className="w-12 h-12 rounded-2xl bg-emerald-600 flex items-center justify-center text-white font-black text-lg shadow-lg shadow-emerald-600/20">{head.name.charAt(0)}</div>
@@ -525,6 +635,16 @@ const Records: React.FC<{ activities: TourismActivity[] }> = ({ activities }) =>
                     <td className="px-8 py-6"><div className="inline-flex items-center px-3 py-1 bg-emerald-50 text-emerald-700 rounded-full text-xs font-black uppercase tracking-tighter">{a.visitors.length} Pax</div></td>
                     <td className="px-8 py-6"><div><p className="text-sm font-black text-gray-800">{a.hotelName}</p><p className="text-xs text-gray-400 font-bold italic">Guide: {a.guideName}</p></div></td>
                     <td className="px-8 py-6 text-right font-black text-gray-900">₹{a.visitorCharges.toLocaleString('en-IN')}</td>
+                    <td className="px-8 py-6 text-center">
+                      <div className="flex items-center justify-center space-x-2">
+                        <button onClick={() => { if(window.confirm('Delete this record?')) onDelete(a.id) }} className="p-3 text-red-400 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all">
+                          <Trash2 size={18} />
+                        </button>
+                        <button className="p-3 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-all">
+                          <Eye size={18} />
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -538,11 +658,24 @@ const Records: React.FC<{ activities: TourismActivity[] }> = ({ activities }) =>
 
 const Reports: React.FC<{ activities: TourismActivity[] }> = ({ activities }) => {
   const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
-  const summary = {
-    totalRevenue: activities.reduce((acc, curr) => acc + curr.visitorCharges, 0),
-    totalCosts: activities.reduce((acc, curr) => acc + (Object.values(curr.costs) as number[]).reduce((a, b) => a + b, 0), 0),
-    totalVisitors: activities.reduce((acc, curr) => acc + curr.visitors.length, 0),
-    netProfit: activities.reduce((acc, curr) => acc + curr.totalProfit, 0)
+  
+  const summary = useMemo(() => {
+    return {
+      totalRevenue: activities.reduce((acc, curr) => acc + curr.visitorCharges, 0),
+      totalVisitors: activities.reduce((acc, curr) => acc + curr.visitors.length, 0),
+      netProfit: activities.reduce((acc, curr) => acc + curr.totalProfit, 0),
+      totalPayouts: activities.reduce((acc, curr) => {
+        const { guideCharges, vehicleCharges, boatCharges, boatmenCharges, forestPermission, forestGuardCharges, communityContribution } = curr.costs;
+        return acc + guideCharges + vehicleCharges + boatCharges + boatmenCharges + forestPermission + forestGuardCharges + communityContribution;
+      }, 0)
+    }
+  }, [activities]);
+
+  const handleExportPDF = () => {
+    const originalTitle = document.title;
+    document.title = `Weavers_Nest_Report_${reportType.toUpperCase()}_${new Date().toISOString().split('T')[0]}`;
+    window.print();
+    document.title = originalTitle;
   };
 
   return (
@@ -552,7 +685,7 @@ const Reports: React.FC<{ activities: TourismActivity[] }> = ({ activities }) =>
           <h2 className="text-4xl font-black text-gray-900 tracking-tight uppercase italic">Operations Ledger</h2>
           <p className="text-gray-500 font-bold uppercase text-xs tracking-widest mt-1">Consolidated Reconciliation for Assam Regional Logistics</p>
         </div>
-        <div className="flex p-2 bg-white rounded-3xl border border-gray-100 shadow-2xl">
+        <div className="flex p-2 bg-white rounded-3xl border border-gray-100 shadow-2xl print:hidden">
           {(['daily', 'weekly', 'monthly'] as const).map(type => (
             <button key={type} onClick={() => setReportType(type)} className={`px-8 py-3 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all ${reportType === type ? 'bg-black text-white shadow-xl' : 'text-gray-400 hover:text-gray-900'}`}>{type}</button>
           ))}
@@ -576,9 +709,9 @@ const Reports: React.FC<{ activities: TourismActivity[] }> = ({ activities }) =>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
               { label: 'Revenue (₹)', value: summary.totalRevenue },
-              { label: 'Ops Costs (₹)', value: summary.totalCosts },
+              { label: 'Third-Party Payouts (₹)', value: summary.totalPayouts },
               { label: 'Group Count', value: activities.length },
-              { label: 'Impact Gain (₹)', value: summary.netProfit }
+              { label: 'Operational Gain (₹)', value: summary.netProfit }
             ].map((stat, i) => (
               <div key={i} className="p-6 rounded-3xl border border-gray-100 bg-gray-50">
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">{stat.label}</p>
@@ -610,7 +743,10 @@ const Reports: React.FC<{ activities: TourismActivity[] }> = ({ activities }) =>
               <div className="flex flex-col"><h2 className="font-black text-xl text-gray-900 tracking-tighter logo-font">WEAVERS NEST</h2><p className="tagline-font text-emerald-600 font-bold text-lg">Discover Assam Empower Communities</p></div>
               <div className="text-gray-400 text-[10px] font-black uppercase tracking-[0.1em] leading-relaxed"><p>Assam Regional Operations • www.weaversnest.in</p></div>
             </div>
-            <button onClick={() => window.print()} className="flex items-center space-x-3 px-10 py-5 bg-black hover:bg-emerald-600 text-white rounded-[1.5rem] font-black text-sm transition-all shadow-2xl shadow-black/20"><Printer size={20} /><span>PRINT INVOICE</span></button>
+            <div className="flex space-x-4 print:hidden">
+              <button onClick={handleExportPDF} className="flex items-center space-x-3 px-8 py-5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[1.5rem] font-black text-sm transition-all shadow-2xl shadow-emerald-600/20"><FileDown size={20} /><span>EXPORT PDF</span></button>
+              <button onClick={() => window.print()} className="flex items-center space-x-3 px-8 py-5 bg-black hover:bg-emerald-600 text-white rounded-[1.5rem] font-black text-sm transition-all shadow-2xl shadow-black/20"><Printer size={20} /><span>PRINT INVOICE</span></button>
+            </div>
           </div>
         </div>
       </div>
@@ -638,12 +774,20 @@ const App: React.FC = () => {
         guideName: 'Pranjal Gogoi',
         hotelName: 'Kaziranga Eco Camp',
         visitorCharges: 10500,
-        costs: { guideCharges: 2000, vehicleCharges: 3500, boatCharges: 1500, boatmenCharges: 800, forestPermission: 1000, communityContribution: 500, commissionPercentage: 10, serviceCharges: 1200 },
+        costs: { guideCharges: 2000, vehicleCharges: 3500, boatCharges: 1500, boatmenCharges: 800, forestPermission: 1000, forestGuardCharges: 500, communityContribution: 500, commissionPercentage: 10, serviceCharges: 1200 },
         totalProfit: 2130
       }
     ];
     setActivities(mockData);
   }, []);
+
+  const handleDeleteActivity = (id: string) => {
+    setActivities(prev => prev.filter(a => a.id !== id));
+  };
+
+  const handleBulkDelete = (ids: string[]) => {
+    setActivities(prev => prev.filter(a => !ids.includes(a.id)));
+  };
 
   const NavItem = ({ icon: Icon, label, view }: { icon: any, label: string, view: ViewState }) => (
     <button onClick={() => setActiveView(view)} className={`w-full flex items-center space-x-3 px-6 py-4 rounded-2xl transition-all duration-300 ${activeView === view ? 'bg-emerald-600 text-white shadow-xl shadow-emerald-600/20 scale-[1.02]' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
@@ -654,7 +798,7 @@ const App: React.FC = () => {
 
   return (
     <div className="flex h-screen bg-black overflow-hidden font-sans">
-      <aside className={`${isSidebarOpen ? 'w-80' : 'w-24'} bg-black border-r border-gray-800 transition-all duration-300 flex flex-col`}>
+      <aside className={`${isSidebarOpen ? 'w-80' : 'w-24'} bg-black border-r border-gray-800 transition-all duration-300 flex flex-col print:hidden`}>
         <div className="p-8">
           <div className="flex flex-col items-center">
             <svg viewBox="0 0 24 24" className="w-16 h-16 text-white mb-[-10px] transform rotate-[-5deg]" fill="currentColor"><path d="M12,2C10.5,2 9,3.5 9,5.5C9,6.5 9.5,7.5 10,8C8.5,8.5 7,9 5,9C3,9 1,10 1,12C1,14 3,15 5,15C7,15 8.5,14.5 10,14C11,15.5 12.5,16.5 14.5,16.5C16.5,16.5 18,15.5 19,14C20.5,14.5 22,15 23,13.5C23.5,12.5 23.5,11.5 23,10.5C22,9 20.5,8.5 19,8C18,6.5 16.5,5.5 14.5,5.5C14,5.5 13.5,5.5 13,5.7C13.2,5.1 13.2,4.5 13,3.9C12.8,3.2 12.4,2.5 12,2ZM14.5,7.5C15.9,7.5 17,8.6 17,10C17,11.4 15.9,12.5 14.5,12.5C13.1,12.5 12,11.4 12,10C12,8.6 13.1,7.5 14.5,7.5Z" /></svg>
@@ -669,18 +813,18 @@ const App: React.FC = () => {
         </nav>
       </aside>
       <main className="flex-1 flex flex-col bg-white rounded-tl-[3rem] overflow-hidden">
-        <header className="h-20 border-b border-gray-100 flex items-center justify-between px-10 bg-white/70 backdrop-blur-xl sticky top-0 z-10">
+        <header className="h-20 border-b border-gray-100 flex items-center justify-between px-10 bg-white/70 backdrop-blur-xl sticky top-0 z-10 print:hidden">
           <div className="flex items-center space-x-6"><button onClick={() => setIsSidebarOpen(!isSidebarOpen)} className="p-3 hover:bg-gray-100 rounded-2xl text-gray-500 transition-colors">{isSidebarOpen ? <X size={20} /> : <Menu size={20} />}</button><h2 className="text-xl font-black text-gray-900 uppercase tracking-tighter">{activeView.replace('-', ' ')}</h2></div>
           <div className="flex items-center space-x-8">
             <div className="flex items-center bg-gray-50 px-5 py-2.5 rounded-2xl border border-gray-100"><span className="w-2.5 h-2.5 bg-emerald-500 rounded-full animate-pulse mr-3"></span><p className="text-[10px] font-black text-gray-600 uppercase tracking-widest">Live Operations Terminal</p></div>
             <div className="w-12 h-12 rounded-2xl bg-black flex items-center justify-center text-white font-black shadow-xl shadow-black/10">WN</div>
           </div>
         </header>
-        <div className="flex-1 overflow-y-auto p-12 bg-gray-50/50">
+        <div className="flex-1 overflow-y-auto p-12 bg-gray-50/50 print:p-0 print:m-0 print:bg-white">
           <div className="max-w-7xl mx-auto space-y-12">
             {activeView === 'dashboard' && <Dashboard activities={activities} />}
             {activeView === 'new-entry' && <EntryForm onAdd={(a) => { setActivities([a, ...activities]); setActiveView('records'); }} />}
-            {activeView === 'records' && <Records activities={activities} />}
+            {activeView === 'records' && <Records activities={activities} onDelete={handleDeleteActivity} onBulkDelete={handleBulkDelete} />}
             {activeView === 'reports' && <Reports activities={activities} />}
           </div>
         </div>

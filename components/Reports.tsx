@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { 
   FileText, 
   Printer, 
@@ -24,12 +24,18 @@ const Reports: React.FC<ReportsProps> = ({ activities }) => {
   const [reportType, setReportType] = useState<'daily' | 'weekly' | 'monthly'>('daily');
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateType>('professional');
 
-  const summary = {
-    totalRevenue: activities.reduce((acc, curr) => acc + curr.visitorCharges, 0),
-    totalCosts: activities.reduce((acc, curr) => acc + (Object.values(curr.costs) as number[]).reduce((a, b) => a + b, 0), 0),
-    totalVisitors: activities.reduce((acc, curr) => acc + curr.visitors.length, 0),
-    netProfit: activities.reduce((acc, curr) => acc + curr.totalProfit, 0)
-  };
+  const summary = useMemo(() => {
+    return {
+      totalRevenue: activities.reduce((acc, curr) => acc + curr.visitorCharges, 0),
+      totalVisitors: activities.reduce((acc, curr) => acc + curr.visitors.length, 0),
+      netProfit: activities.reduce((acc, curr) => acc + curr.totalProfit, 0),
+      // Sum of all actual logistical payouts (not including commission/service charges which are profit)
+      totalPayouts: activities.reduce((acc, curr) => {
+        const { guideCharges, vehicleCharges, boatCharges, boatmenCharges, forestPermission, forestGuardCharges, communityContribution } = curr.costs;
+        return acc + guideCharges + vehicleCharges + boatCharges + boatmenCharges + forestPermission + forestGuardCharges + communityContribution;
+      }, 0)
+    };
+  }, [activities]);
 
   const templates: { id: TemplateType, name: string, description: string }[] = [
     { id: 'professional', name: 'Weaver Black', description: 'Deep contrast layout with the official brush-stroke branding.' },
@@ -83,9 +89,9 @@ const Reports: React.FC<ReportsProps> = ({ activities }) => {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             {[
               { label: 'Revenue (₹)', value: summary.totalRevenue },
-              { label: 'Ops Costs (₹)', value: summary.totalCosts },
+              { label: 'Third-Party Payouts (₹)', value: summary.totalPayouts },
               { label: 'Group Count', value: activitiesList.length },
-              { label: 'Impact Gain (₹)', value: summary.netProfit }
+              { label: 'Operational Gain (₹)', value: summary.netProfit }
             ].map((stat, i) => (
               <div key={i} className={`p-6 rounded-3xl border ${template === 'classic' ? 'border-black' : 'bg-gray-50 border-gray-100'}`}>
                 <p className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-2">{stat.label}</p>

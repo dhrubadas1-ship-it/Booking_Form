@@ -16,6 +16,7 @@ export interface Costs {
   boatCharges: number;
   boatmenCharges: number;
   forestPermission: number;
+  forestGuardCharges: number;
   communityContribution: number;
   commissionPercentage: number;
   serviceCharges: number;

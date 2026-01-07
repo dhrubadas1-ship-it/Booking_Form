@@ -20,7 +20,8 @@ import {
   Trash2,
   CheckCircle2,
   Circle,
-  FilePlus
+  FilePlus,
+  ShieldCheck
 } from 'lucide-react';
 import { TourismActivity, Visitor, Costs } from '../types';
 import { extractVisitorFromDocument } from '../services/geminiService';
@@ -49,6 +50,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAdd }) => {
     boatCharges: 1500,
     boatmenCharges: 800,
     forestPermission: 1000,
+    forestGuardCharges: 500,
     communityContribution: 500,
     commissionPercentage: 10,
     serviceCharges: 1200
@@ -93,6 +95,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAdd }) => {
       costs.boatCharges + 
       costs.boatmenCharges +
       costs.forestPermission + 
+      costs.forestGuardCharges +
       costs.communityContribution;
     
     const commissionAmount = (costs.commissionPercentage / 100) * baseLogistics;
@@ -278,6 +281,7 @@ const EntryForm: React.FC<EntryFormProps> = ({ onAdd }) => {
                   { key: 'boatCharges', label: 'Boat Charges', icon: MapPin },
                   { key: 'boatmenCharges', label: 'Boatmen/Rafting', icon: Users },
                   { key: 'forestPermission', label: 'Forest Entry', icon: Layers },
+                  { key: 'forestGuardCharges', label: 'Forest Guard', icon: ShieldCheck },
                   { key: 'communityContribution', label: 'Community SVC', icon: Users },
                   { key: 'serviceCharges', label: 'Service Charge', icon: Settings },
                 ].map((item) => (
